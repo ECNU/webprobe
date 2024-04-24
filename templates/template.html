@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Link Pulse Dashboard</title>
+    <!-- 引入 Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <style>
+        .table .depth-0 { background-color: #f0f8ff !important; }
+        .table .depth-1 { background-color: #fff8dc !important; }
+        .table .depth-2 { background-color: #fff0f5 !important; }
+        /* 以此类推，根据需要定义更多深度的颜色 */
+        body {
+            padding: 20px;
+        }
+        table {
+            margin-top: 20px;
+            width: 100%; /* 调整表格宽度为页面宽度 */
+        }
+        th, td {
+            text-align: center;
+            padding: 10px;
+            word-wrap: break-word; /* 允许单词内换行 */
+            max-width: 150px; /* 设置最大宽度，根据需要调整 */
+        }
+        tr:hover {
+            background-color: #f5f5f5; /* 鼠标悬停效果 */
+        }
+        .up-status {
+            color: green;
+        }
+        .down-status {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+<h2 class="text-center">Link Pulse Dashboard</h2>
+
+<!-- 添加 IPv4 和 IPv6 按钮 -->
+<div class="text-center mb-3">
+    <button id="ipv4-btn" class="btn btn-primary">IPv4</button>
+    <button id="ipv6-btn" class="btn btn-secondary">IPv6</button>
+</div>
+<table id="url-table" class="table table-bordered table-striped">
+    <thead class="thead-dark">
+    <tr>
+        <th>Depth</th>
+        <th>URL</th>
+        <th>IP Version</th>
+        <th>Up</th>
+        <th>Status Code</th>
+        <th>Latency</th>
+        <th class="ipv4-col">一级子链可达率</th>
+        <th class="ipv4-col">二级子链可达率</th>
+        <th class="ipv6-col">一级子链可达率</th>
+        <th class="ipv6-col">二级子链可达率</th>
+        <th>Action</th>
+    </tr>
+    </thead>
+    {{range .URLDataWithReachability}}
+    <tbody class="url-group" data-url="{{.URL}}" data-depth="{{.Depth}}" data-father-url="{{.FatherURL}}">
+    <tr class="url-row depth-{{.Depth}}" >
+        <td>{{.Depth}}</td>
+        <td>{{.URL}}</td>
+        <td>{{.IPVersion}}</td>
+        <td class="{{if .Up}}up-status{{else}}down-status{{end}}">{{.Up}}</td>
+        <td>{{if .Up}}{{.StatusCode}}{{else}}-{{end}}</td>
+        <td>{{printf "%.1f ms" (toMillis .Latency)}}</td>
+        <td class="ipv4-col">
+            {{if lt .Depth $.MaxDepth}}
+            {{printf "%.1f%%" (mul .ReachabilityIPv4.FirstLevelReach 100)}}
+            {{else}}
+            -
+            {{end}}
+        </td>
+        <td class="ipv4-col">
+            {{if lt .Depth (sub $.MaxDepth 1)}}
+            {{printf "%.1f%%" (mul .ReachabilityIPv4.SecondLevelReach 100)}}
+            {{else}}
+            -
+            {{end}}
+        </td>
+        <td class="ipv6-col">
+            {{if lt .Depth $.MaxDepth}}
+            {{printf "%.1f%%" (mul .ReachabilityIPv6.FirstLevelReach 100)}}
+            {{else}}
+            -
+            {{end}}
+        </td>
+        <td class="ipv6-col">
+            {{if lt .Depth (sub $.MaxDepth 1)}}
+            {{printf "%.1f%%" (mul .ReachabilityIPv6.SecondLevelReach 100)}}
+            {{else}}
+            -
+            {{end}}
+        </td>
+        <td>
+            {{if lt .Depth $.MaxDepth}}
+            <button class="toggle-btn">展开</button>
+            {{end}}
+        </td>
+    </tr>
+    </tbody>
+    {{end}}
+</table>
+
+<!-- 引入 jQuery 和 Bootstrap JS -->
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+        // 默认显示 IPv4
+        filterTable('ipv4');
+
+        // IPv4 按钮点击事件
+        $('#ipv4-btn').click(function() {
+            filterTable('ipv4');
+        });
+
+        // IPv6 按钮点击事件
+        $('#ipv6-btn').click(function() {
+            filterTable('ipv6');
+        });
+
+        // 初始化，只显示深度为0的行
+        $('.url-group').filter(function() {
+            return $(this).data('depth') > 0;
+        }).hide();
+
+        // 处理展开/收起按钮点击事件
+        $('.toggle-btn').click(function() {
+            var $button = $(this);
+            var $currentGroup = $button.closest('.url-group');
+            var currentDepth = $currentGroup.data('depth');
+            var currentURL = $currentGroup.data('url');
+
+            if ($button.text() === '展开') {
+                // 展开子链接
+                $('.url-group').each(function() {
+                    if ($(this).data('father-url') === currentURL && $(this).data('depth') === currentDepth + 1) {
+                        $(this).show();
+                        $currentGroup.after($(this)); // 插入子链接行
+                    }
+                });
+                $button.text('收起');
+            } else {
+                // 收起子链接
+                $('.url-group').each(function() {
+                    if ($(this).data('father-url') === currentURL && $(this).data('depth') > currentDepth) {
+                        $(this).hide();
+                    }
+                });
+                $button.text('展开');
+            }
+        });
+
+        // 筛选表格数据的函数
+        function filterTable(ipVersion) {
+            if (ipVersion === 'ipv4') {
+                $('.ipv4-col').show();
+                $('.ipv6-col').hide();
+            } else if (ipVersion === 'ipv6') {
+                $('.ipv4-col').hide();
+                $('.ipv6-col').show();
+            }
+            $('#url-table tbody .url-row').each(function() {
+                var rowIPVersion = $(this).find('td:nth-child(3)').text().trim().toLowerCase(); // 获取行中的 IP 版本
+                if (ipVersion === 'ipv4') {
+                    if (rowIPVersion === 'ipv4') {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                } else if (ipVersion === 'ipv6') {
+                    if (rowIPVersion === 'ipv6') {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                }
+            });
+        }
+    });
+</script>
+
+</body>
+</html>
