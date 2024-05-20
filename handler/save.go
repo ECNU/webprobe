@@ -1,58 +1,17 @@
 package handler
 
 import (
-	"database/sql"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"time"
 	"webprobe/scanner"
+
+	"webprobe/models"
+
+	_ "github.com/mattn/go-sqlite3"
+	"gorm.io/gorm"
 )
 
-func InitDB(dbPath string) *sql.DB {
-	db, err := sql.Open("sqlite3", dbPath)
-	if err != nil {
-		log.Fatalf("Error opening database: %v", err)
-	}
-
-	// 创建第一个表：url_status
-	createURLStatusTableSQL := `
-    CREATE TABLE IF NOT EXISTS url_status (
-        FatherURL TEXT,
-        Depth INTEGER,
-        URL TEXT,
-        IPVersion TEXT,
-        Up BOOLEAN,
-        StatusCode INTEGER,
-        Latency INTEGER,
-        CertExpire DATETIME,
-        CreateTime DATETIME,
-        PRIMARY KEY (URL, IPVersion, CreateTime)
-	);`
-	_, err = db.Exec(createURLStatusTableSQL)
-	if err != nil {
-		log.Fatalf("Error creating url_status table: %v", err)
-	}
-
-	// 创建第二个表：reachability
-	createReachabilityTableSQL := `
-    CREATE TABLE IF NOT EXISTS reachability (
-        URL TEXT,
-        IPv4FirstLevelReach FLOAT,
-        IPv4SecondLevelReach FLOAT,
-        IPv6FirstLevelReach FLOAT,
-        IPv6SecondLevelReach FLOAT,
-        CreateTime DATETIME,
-        PRIMARY KEY (URL, CreateTime)
-    );`
-	_, err = db.Exec(createReachabilityTableSQL)
-	if err != nil {
-		log.Fatalf("Error creating reachability table: %v", err)
-	}
-
-	return db
-}
-
-// 将URL状态数据保存到数据库
+/* // 将URL状态数据保存到数据库
 func SaveData(db *sql.DB, urlDataWithReachability []scanner.URLDataWithReachability, maxDepth int) {
 	const layout = "2006-01-02 15:04:05-07:00" // 设置时间格式
 
@@ -70,6 +29,37 @@ func SaveData(db *sql.DB, urlDataWithReachability []scanner.URLDataWithReachabil
 			_, err = db.Exec(insertReachabilitySQL, data.URL, data.ReachabilityIPv4.FirstLevelReach, data.ReachabilityIPv4.SecondLevelReach, data.ReachabilityIPv6.FirstLevelReach, data.ReachabilityIPv6.SecondLevelReach, time.Now())
 			if err != nil {
 				log.Printf("Error inserting reachability data: %v", err)
+			}
+		}
+	}
+}
+*/
+
+// SaveData 保存 URL 状态数据到数据库
+func SaveData(db *gorm.DB, urlDataWithReachability []scanner.URLDataWithReachability, maxDepth int) {
+	currentTime := time.Now()
+
+	for _, data := range urlDataWithReachability {
+		status := data.URLStatus
+
+		// 保存 URLStatus 数据
+		if err := db.Create(&status).Error; err != nil {
+			log.Printf("Error inserting URLStatus data: %v", err)
+		}
+
+		// 如果深度小于最大深度，则保存 Reachability 数据
+		if status.Depth < maxDepth {
+			reachability := models.Reachability{
+				URL:                  data.URL,
+				IPv4FirstLevelReach:  data.ReachabilityIPv4.FirstLevelReach,
+				IPv4SecondLevelReach: data.ReachabilityIPv4.SecondLevelReach,
+				IPv6FirstLevelReach:  data.ReachabilityIPv6.FirstLevelReach,
+				IPv6SecondLevelReach: data.ReachabilityIPv6.SecondLevelReach,
+				CreateTime:           currentTime,
+			}
+
+			if err := db.Create(&reachability).Error; err != nil {
+				log.Printf("Error inserting Reachability data: %v", err)
 			}
 		}
 	}

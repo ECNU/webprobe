@@ -1,7 +1,7 @@
-url: ["https://www.ecnu.edu.cn", "https://www.baidu.com"]
+url: ["https://eoffice.ecnu.edu.cn"]
 scanner:
     crawl:
-        depth: 2 # 爬虫时的链接深度，0 代表只检测url自身，以此类推
+        depth: 1 # 爬虫时的链接深度，0 代表只检测url自身，以此类推
         timeout: 5 # 爬虫时访问每个url的超时时间
     check:
         ipv6: false # 默认仅使用ipv4检测，设置为true后进行ipv4和ipv6双检测
@@ -13,9 +13,16 @@ scanner:
         http_client_timeout: 15 # 请求每个URL的超时时间
         context_timeout: 1000 # 完成所有检测的超时时间，应足够大，否则会在检测某个url上一直挂起
 push:
-    push_to_prometheus: false
-    push_gateway_url: "http://10.24.70.20:9091"
+    push_to_prometheus: true
+    push_gateway_url: "http://127.0.0.1:9091"
 output: "output.html"
 db:
-    use_db: false
-    db_path: "LinkPulse.db"
+    use_db: true
+    dialect: "mysql"
+    username: "root"
+    password: "xxxxxx"
+    host: "127.0.0.1"
+    port: "3306" 
+    db_name: "webprobe" 
+    ssl_mode: ""
+
