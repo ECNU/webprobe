@@ -1,8 +1,10 @@
 package config
 
 import (
-	"github.com/spf13/viper"
+	"log"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 type Config struct {
@@ -40,15 +42,23 @@ type Push struct {
 	PushGatewayURL   string `mapstructure:"push_gateway_url"`
 }
 type DBConfig struct {
-	UseDB  bool   `mapstructure:"use_db"`  // default value: true
-	DBPath string `mapstructure:"db_path"` // default value: "url_status.db"
+	UseDB    bool   `mapstructure:"use_db"`   // 是否使用数据库，默认值为 true
+	Dialect  string `mapstructure:"dialect"`  // 数据库方言（例如：mysql、postgres）
+	Username string `mapstructure:"username"` // 数据库用户名
+	Password string `mapstructure:"password"` // 数据库密码
+	Host     string `mapstructure:"host"`     // 数据库主机地址
+	Port     int    `mapstructure:"port"`     // 数据库连接端口号
+	DBName   string `mapstructure:"db_name"`  // 数据库名称
+	SSLMode  string `mapstructure:"ssl_mode"` // SSL 模式（仅适用于某些数据库，如 PostgreSQL）
 }
 
-func LoadConfig() (*Config, error) {
+var ConfigPath string
+
+func LoadConfig(configPath string) (*Config, error) {
+	log.Println(ConfigPath)
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")
-
+	viper.AddConfigPath(configPath)
 	viper.AutomaticEnv() // read from environment variables
 
 	// 设置默认值
